@@ -36,17 +36,6 @@ int updatedPosB = 0;     // keeps track of the encoder position
 volatile int lastRawPosB = 0; // 'volatile' as it is modified in an interrupt                     // last last raw reading from MR sensor
 int EncLookup[16] = { 0, -1, 1, 2, 1, 0, 2, -1, -1, 2, 0, 1, 2, 1, -1, 0 };  // encoder increment lookup table
 
-// Kinematics variables
-double theta_s = 0;      // Angle of the sector pulley in deg
-double xh_prev;          // Distance of the handle at previous time step
-double xh_prev2;
-double dxh;              // Velocity of the handle
-double dxh_prev;
-double dxh_prev2;
-double dxh_filt;         // Filtered velocity of the handle
-double dxh_filt_prev;
-double dxh_filt_prev2;
-
 // Force output variables
 double forceA = 0;           			// Force at the handle
 double TpA = 0;              			// Torque of the motor pulley
@@ -58,6 +47,14 @@ double forceB = 0;           			// Force at the handle
 double TpB = 0;              			// Torque of the motor pulley
 double dutyB = 0;            			// Duty cylce (between 0 and 255)
 unsigned int outputB = 0;    			// Output command to the motor
+
+//Force rendering
+float k = 1.5; //spring constant
+float ff_x = 4;
+float ff_y = 4; //Force field location
+float distance; //distance of hapkit from target location
+
+
 
 unsigned long curr_time=0.0;
 unsigned long prev_time=0.0;
@@ -162,7 +159,10 @@ struct angle_pair {
   float t2;
 };
 
+
 angle_pair test_pair;
+
+
 // https://replit.com/@jafferali1/inversekinematics#main.cpp
 void forward_kinematics(float tsA, float tsB){
   x2 = l1*cosf(tsA);
@@ -209,6 +209,8 @@ struct angle_pair inverse_kinematics(float target_x, float target_y){
   return end_position;
 }
 
+angle_pair target_thetas = inverse_kinematics(ff_x,ff_y);
+
 void loop() {
   curr_time = millis();//64.0;
   tsA = -radians(0.35*(rp/rs)*updatedPosA) + radians(180-40); //theta1
@@ -221,16 +223,19 @@ void loop() {
   Serial.print(",");
   Serial.print(y3);
   delay(30);
-//  Serial.println("Test");
-//  Serial.println(String(x3)+"a"+String(y3));
-/*
-  Serial.print(x3);
-  Serial.print(" ");
-  Serial.println(y3);
-*/
-  forceA = 0;
-  forceB = 0;
 
+
+
+  
+  distance = abs(sqrt(((ff_x - x3)*(ff_x - x3)) + ((ff_y - y3)*(ff_y - y3))));
+  if (distance < 0.5){ 
+    forceA = k * (target_thetas.t1 - tsA);
+    forceB = k * (target_thetas.t2 - tsB);
+
+  } else {
+    forceA = 0;
+    forceB = 0;
+  }
 
   TpA= rp/rs * forceA;
   TpB = rp/rs * forceB;
@@ -290,44 +295,3 @@ void loop() {
 
   
 }
-
-
-
-
-
-
-
-
-//PWM Set Function
-/*
-void setPwmFrequency(int pin, int divisor) {
-  byte mode;
-  if(pin == 5 || pin == 6 || pin == 9 || pin == 10) {
-    switch(divisor) {
-      case 1: mode = 0x01; break;
-      case 8: mode = 0x02; break;
-      case 64: mode = 0x03; break;
-      case 256: mode = 0x04; break;
-      case 1024: mode = 0x05; break;
-      default: return;
-    }
-    if(pin == 5 || pin == 6) {
-      TCCR0B = TCCR0B & 0b11111000 | mode;
-    } else {
-      TCCR1B = TCCR1B & 0b11111000 | mode;
-    }
-  } else if(pin == 3 || pin == 11) {
-    switch(divisor) {
-      case 1: mode = 0x01; break;
-      case 8: mode = 0x02; break;
-      case 32: mode = 0x03; break;
-      case 64: mode = 0x04; break;
-      case 128: mode = 0x05; break;
-      case 256: mode = 0x06; break;
-      case 1024: mode = 0x7; break;
-      default: return;
-    }
-    TCCR2B = TCCR2B & 0b11111000 | mode;
-  }
-}
-*/

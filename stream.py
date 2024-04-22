@@ -12,8 +12,8 @@ class grbl():
         self.cond = True
 
     def scale(self, xpos, ypos, scale):
-        self.x_new = (float(xpos))scale # -3.27
-        self.y_new = (float(ypos))scale #-1.36
+        self.x_new = (float(xpos)-3.27)*scale
+        self.y_new = (float(ypos)-1.36)*scale
 
         return str(self.x_new), str(self.y_new)
 
@@ -51,10 +51,7 @@ hapkit = hapkit('/dev/ttyACM1')
 while True:
     grbl.grbl_stream(hapkit.xpos,hapkit.ypos)
     hapkit.hapkit_stream()
-    grbl.grbl_stream(hapkit.xpos,hapkit.ypos)
-    hapkit.hapkit_stream(grbl.machine_x,grbl.machine_y)
-    
-    #print(hapkit.xpos,hapkit.ypos,"a",grbl.machine_x,grbl.machine_y)
+
     
     
     
