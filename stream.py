@@ -56,8 +56,10 @@ class hapkit():
     
     def hapkit_stream(self,machine_x,machine_y):
         xypos = self.s2.readline().decode().strip()
-        self.xpos = xypos.split('a')[1]
-        self.ypos = xypos.split('a')[0]
+        self.xpos = xypos.split('a')[0]
+        self.ypos = xypos.split('a')[1]
+        hapkitmachinepos = xypos.split('a')[2]
+        print("hapkitmachineposition: ",hapkitmachinepos)
         machine_xypos = '{}a{}'.format(machine_x,machine_y)
         self.s2.write(machine_xypos.encode()+ '\n'.encode())
         
