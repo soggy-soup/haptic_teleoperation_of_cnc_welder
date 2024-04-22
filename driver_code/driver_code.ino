@@ -62,6 +62,22 @@ unsigned int outputB = 0;    			// Output command to the motor
 unsigned long curr_time=0.0;
 unsigned long prev_time=0.0;
 
+float tsA, tsB;
+float x2, y2, x4, y4, xH, yH;
+float ttf,tth,yh,xh,thrth;
+
+float x3,y3;
+float machine_x, machine_y;
+
+float l1 = 5;
+float l2 = 6;
+float l3 = 6;
+float l4 = 5;
+float l5 = 2.5;
+
+float p4p2, php2, p3ph;
+
+
 void readEncoderA() {
   int newRawPosA = digitalRead(encPin1A) * 2 + digitalRead(encPin2A);
   int encIncA = EncLookup[lastRawPosA * 4 + newRawPosA];
@@ -78,12 +94,6 @@ void readEncoderB() {
   lastRawPosB = newRawPosB;
 }
 
-// work with known geometries
-// show on welder - even if in a very controlled setting
-// tune a damping parameter to correspond with the cnc machine
-// test encoder in lab
-
-
 void setup() {
    // Set up serial communication
   Serial.begin(115200);
@@ -91,6 +101,7 @@ void setup() {
   // Set PWM frequency 
   //setPwmFrequency(pwmPinA,1); 
   
+
   // Input pins
   //pinMode(sensorPosPinA, INPUT); // set MR sensor pin to be an input
   //pinMode(fsrPinA, INPUT);       // set FSR sensor pin to be an input
@@ -140,21 +151,6 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(encPin2B), readEncoderB, CHANGE);
 }
 
-float tsA, tsB;
-float x2, y2, x4, y4, xH, yH;
-float ttf,tth,yh,xh,thrth;
-
-float x3,y3;
-float machine_x, machine_y;
-
-float l1 = 5;
-float l2 = 6;
-float l3 = 6;
-float l4 = 5;
-float l5 = 2.5;
-
-float p4p2, php2, p3ph;
-
 
 struct position{
   float x;
@@ -174,9 +170,7 @@ void forward_kinematics(float tsA, float tsB){
   //Serial.print("a");
   y2 = l1*sinf(tsA);
   x4 = l4*cosf(tsB) + l5;
-  //Serial.print(x4);
-  //Serial.print("a");
-  y4 = l4*sinf(tsB);
+    y4 = l4*sinf(tsB);
 
   p4p2 = sqrt(pow(x2 - x4, 2) + pow(y2 - y4, 2)); // distance from p4 to p2
   php2 = (pow(l2, 2) - pow(l3, 2) + pow(p4p2, 2)) / (2 * p4p2);
@@ -189,10 +183,7 @@ void forward_kinematics(float tsA, float tsB){
   x3 = xH + -(p3ph / p4p2) * (y4 - y2);
   y3 = yH + (p3ph / p4p2) * (x4 - x2);
 
-  test_pair = inverse_kinematics(x3, y3);
-
-
-
+  //test_pair = inverse_kinematics(x3, y3);
 }
 
 float l13, l53, alphaOne, betaOne, thetaOne, alphaFive, betaFive, thetaFive;
@@ -218,28 +209,17 @@ struct angle_pair inverse_kinematics(float target_x, float target_y){
   return end_position;
 }
 
-String machine_pos = "";
-void serial_read_machine(){
-  if (Serial.available()){
-    machine_pos = Serial.readString();
-  }
-}
-
-
 void loop() {
   curr_time = millis();//64.0;
-  // 
   tsA = -radians(0.35*(rp/rs)*updatedPosA) + radians(180-40); //theta1
   tsB = radians(0.35*(rp/rs)*updatedPosB) + radians(40); //theta2
 
   forward_kinematics(tsA, tsB);
-  serial_read_machine();
+
 
   Serial.print(x3);
-  Serial.print("a");
+  Serial.print(",");
   Serial.print(y3);
-  Serial.print("a");
-  Serial.println(machine_pos);
   delay(30);
 //  Serial.println("Test");
 //  Serial.println(String(x3)+"a"+String(y3));
