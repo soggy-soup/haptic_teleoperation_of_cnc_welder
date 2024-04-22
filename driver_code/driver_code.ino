@@ -49,7 +49,7 @@ double dutyB = 0;            			// Duty cylce (between 0 and 255)
 unsigned int outputB = 0;    			// Output command to the motor
 
 //Force rendering
-float k = 1.5; //spring constant
+float k = 10; //spring constant
 float ff_x = 4;
 float ff_y = 4; //Force field location
 float distance; //distance of hapkit from target location
@@ -221,7 +221,7 @@ void loop() {
 
   Serial.print(x3);
   Serial.print(",");
-  Serial.print(y3);
+  Serial.println(y3);
   delay(30);
 
 

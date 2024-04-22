@@ -4,7 +4,7 @@ import numpy as np
 
 
 class grbl():
-    def init(self,com_port):
+    def __init__(self,com_port):
         self.s = serial.Serial(com_port,115200)
         self.s.write("\r\n\r\n".encode()) # Wake up grbl
         time.sleep(2)   # Wait for grbl to initialize 
@@ -31,7 +31,7 @@ class grbl():
 
 
 class hapkit():
-    def init(self, com_port):
+    def __init__(self, com_port):
         self.s2 = serial.Serial(com_port,115200)
         self.xpos = 0
         self.ypos = 0
@@ -45,8 +45,8 @@ class hapkit():
 
 
 #for linux '/dev/ttyACM0', for windows 'COM1'
-grbl = grbl('/dev/ttyACM0')
-hapkit = hapkit('/dev/ttyACM1')
+grbl = grbl('/dev/ttyACM1')
+hapkit = hapkit('/dev/ttyACM0')
 
 while True:
     grbl.grbl_stream(hapkit.xpos,hapkit.ypos)
