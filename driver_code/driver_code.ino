@@ -49,22 +49,23 @@ double dutyB = 0;            			// Duty cylce (between 0 and 255)
 unsigned int outputB = 0;    			// Output command to the motor
 
 //Force rendering
-float k = 10; //spring constant
-float ff_x = 4;
-float ff_y = 4; //Force field location
+float k = 2; //spring constant
+float ff_x = .84;
+float ff_y = 7.93; //Force field location
 float distance; //distance of hapkit from target location
+float max_attraction = 1;
 
 
-
-unsigned long curr_time=0.0;
-unsigned long prev_time=0.0;
+unsigned long curr_time=millis();
+unsigned long prev_time=millis();
 
 float tsA, tsB;
 float x2, y2, x4, y4, xH, yH;
 float ttf,tth,yh,xh,thrth;
 
 float x3,y3;
-float machine_x, machine_y;
+float last_x3, last_y3;
+float velocity;
 
 float l1 = 5;
 float l2 = 6;
@@ -170,7 +171,7 @@ void forward_kinematics(float tsA, float tsB){
   //Serial.print("a");
   y2 = l1*sinf(tsA);
   x4 = l4*cosf(tsB) + l5;
-    y4 = l4*sinf(tsB);
+  y4 = l4*sinf(tsB);
 
   p4p2 = sqrt(pow(x2 - x4, 2) + pow(y2 - y4, 2)); // distance from p4 to p2
   php2 = (pow(l2, 2) - pow(l3, 2) + pow(p4p2, 2)) / (2 * p4p2);
@@ -178,8 +179,9 @@ void forward_kinematics(float tsA, float tsB){
   xH = x2 + (php2 / p4p2) * (x4 - x2);
   yH = y2 + (php2 / p4p2) * (y4 - y2);
 
-  p3ph = sqrt(pow(l2, 2) - pow(php2, 2));
-  
+  //if(php2 > 36){
+    p3ph = sqrt(pow(l2, 2) - pow(php2, 2));
+  //}
   x3 = xH + -(p3ph / p4p2) * (y4 - y2);
   y3 = yH + (p3ph / p4p2) * (x4 - x2);
 
@@ -209,51 +211,131 @@ struct angle_pair inverse_kinematics(float target_x, float target_y){
   return end_position;
 }
 
+float norm(float v1_x, float v1_y, float v2_x, float v2_y){
+  float result = sqrt((v1_x-v2_x)*(v1_x-v2_x) + (v1_y-v2_y)*(v1_y-v2_y));
+  return result;
+}
+
+// Jacobian variables
+float jd, jb, jh, del1_x2, del1_y2, del5_x4, del5_y4;
+float del1_y4 = 0.0;
+float del1_x4 = 0.0;
+float del5_y2 = 0.0;
+float del5_x2 = 0.0;
+float del1_d ,del1_b, del1_h;  
+float del1_yh,del1_xh,del1_y3,del1_x3;
+float del5_d ,del5_b ,del5_h,del5_yh, del5_xh, del5_y3, del5_x3; 
+float Fx, Fy;
+
+void Jacobian(){     
+    jd = norm(x2,y2,x4,y4);
+    jb = norm(x2,y2,xH,yH);
+    jh = norm(x3,y3,xH,yH);
+    
+    del1_x2 = -l1*sin(tsA);  //NOTE: THE AUTHOR FORGOT NEGATIVE SIGN IN THE PAPER
+    del1_y2 = l1*cos(tsA);
+    del5_x4 = -l4*sin(tsB);  //NOTE: THE AUTHOR FORGOT NEGATIVE SIGN IN THE PAPER
+    del5_y4 = l4*cos(tsB);
+    
+    //joint 1
+    del1_d = ( ((x4-x2)*(del1_x4-del1_x2)) + ((y4-y2)*(del1_y4-del1_y2)) ) / jd;
+    del1_b = del1_d - (del1_d*(((l2*l2)-(l3*l3)+(jd*jd))/(2.0*jd*jd)));
+    del1_h = -jb*del1_b / jh;
+    
+    del1_yh = del1_y2 + (del1_b*jd-del1_d*jb)/(jd*jd) * (y4-y2) + jb/jd * (del1_y4 - del1_y2);
+    del1_xh = del1_x2 + (del1_b*jd-del1_d*jb)/(jd*jd) * (x4-x2) + jb/jd * (del1_x4 - del1_x2);
+    
+    del1_y3 = del1_yh - jh/jd * (del1_x4-del1_x2) - (del1_h*jd - del1_d*jh)/(jd*jd) *(x4 - x2);
+    del1_x3 = del1_xh + jh/jd * (del1_y4-del1_y2) + (del1_h*jd - del1_d*jh)/(jd*jd) *(y4 - y2);
+    
+    //joint 2
+    del5_d = ( ((x4-x2)*(del5_x4-del5_x2))+((y4-y2)*(del5_y4-del5_y2)) ) / jd;
+    del5_b = del5_d - (del5_d*(l2*l2-l3*l3+jd*jd))/(2.0*jd*jd);
+    del5_h = -jb*del5_b / jh;
+    
+    del5_yh = del5_y2 + (del5_b*jd-del5_d*jb)/(jd*jd) * (y4-y2) + jb/jd * (del5_y4 - del5_y2);
+    del5_xh = del5_x2 + (del5_b*jd-del5_d*jb)/(jd*jd) * (x4-x2) + jb/jd * (del5_x4 - del5_x2);
+    
+    del5_y3 = del5_yh - jh/jd * (del5_x4-del5_x2) - (del5_h*jd - del5_d*jh)/(jd*jd) * (x4 - x2);
+    del5_x3 = del5_xh + jh/jd * (del5_y4-del5_y2) + (del5_h*jd - del5_d*jh)/(jd*jd) * (y4 - y2);
+}
+
+
 angle_pair target_thetas = inverse_kinematics(ff_x,ff_y);
+
+float dxydt, dxdt, dydt; 
+float dxydt_filt, dxdt_filt, dydt_filt;
+float last_dxydt, last_dxdt, last_dydt;
+
+float dt; 
+
+float last_tsA, last_tsB; 
+float dtsA, dtsB;
+float b = .03;
+float dampening;
+
 
 void loop() {
   curr_time = millis();//64.0;
+  last_tsA = tsA;
+  last_tsB = tsB;
+
   tsA = -radians(0.35*(rp/rs)*updatedPosA) + radians(180-40); //theta1
   tsB = radians(0.35*(rp/rs)*updatedPosB) + radians(40); //theta2
 
+
+  dt = float(curr_time - prev_time)/1000;
+  last_x3 = x3;
+  last_y3 = y3;
   forward_kinematics(tsA, tsB);
 
+  // VELOCITY CALCULATIONS
+  dxydt = sqrt(pow(last_x3 - x3, 2.) + pow(last_y3 - y3, 2.))/dt;
+  dxdt = (x3 - last_x3)/dt;
+  dydt = (y3 - last_y3)/dt;
+  
+  // FILTERS, UNTESTED
+  dxydt_filt = dxydt*.9 + last_dxydt*.1;
+  dxdt_filt = dxdt*.9 + last_dxdt*.1;
+  dydt_filt = dydt*.9 + last_dydt*.1;
 
   Serial.print(x3);
   Serial.print(",");
-  Serial.println(y3);
-  delay(30);
+  Serial.print(y3);
 
-
-
-  
   distance = abs(sqrt(((ff_x - x3)*(ff_x - x3)) + ((ff_y - y3)*(ff_y - y3))));
-  if (distance < 0.5){ 
-    forceA = k * (target_thetas.t1 - tsA);
-    forceB = k * (target_thetas.t2 - tsB);
 
-  } else {
-    forceA = 0;
-    forceB = 0;
-  }
+  Fx = dxdt_filt*b;
+  Fy = -dydt_filt*b;
 
-  TpA= rp/rs * forceA;
-  TpB = rp/rs * forceB;
+  Jacobian(); // compute jacobian
 
+  float Tleftx = Fx*del1_x3;
+  float Trightx = Fx*del5_x3;
+  float Tlefty = Fy*del1_y3;
+  float Trighty = Fy*del5_y3;
 
+  TpA= rp/rs * (Tleftx + Tlefty);
+  TpB = rp/rs * (Trightx + Trighty);
+  Serial.print(dampening);
+  Serial.print(",");
+  Serial.print(TpA);
+  Serial.print(",");
+  Serial.println(TpB);
 
-
-
+  last_dxdt = dxdt;
+  last_dydt = dydt;
+  last_dxydt = dxydt; 
 //FORCE OUTPUT
 // Determine correct direction for motor torque
-  if(forceA > 0) { 
+  if(TpA > 0) { 
     digitalWrite(dirPinA, LOW);
     digitalWrite(dirPin2A,HIGH);
   } else {
     digitalWrite(dirPinA, HIGH);
     digitalWrite(dirPin2A,LOW);
   }
-  if(forceB > 0) { 
+  if(TpB > 0) { 
     digitalWrite(dirPinB, LOW);
     digitalWrite(dirPin2B,HIGH);
   } else {
@@ -264,6 +346,7 @@ void loop() {
   // Compute the duty cycle required to generate Tp (torque at the motor pulley)
   dutyA = sqrt(abs(TpA)/0.03);
   dutyB = sqrt(abs(TpB)/0.03);
+
   // Make sure the duty cycle is between 0 and 100%
   if (dutyA > 1) {            
     dutyA = 1;
@@ -280,18 +363,6 @@ void loop() {
   analogWrite(pwmPinA,outputA);  // output the signal   
   outputB = (int)(dutyB* 255);   // convert duty cycle to output signal
   analogWrite(pwmPinB,outputB);  // output the signal 
-
-
-
-
-  if(curr_time-prev_time>33){
-   //PUT CODE HERE TO RUN EVERY 100 ms
-   //Serial.println(xh); //UNCOMMENT for part 1A
-   //Serial.println(String(tsA)+"a"+String(tsB));
-   //Serial.println(String(x3)+"a"+String(y3));
-   //Serial.println(String(updatedPosA)+"a"+String(updatedPosB));
-   prev_time = curr_time;
-  }
-
-  
+  prev_time = curr_time;
+  delay(30);
 }
