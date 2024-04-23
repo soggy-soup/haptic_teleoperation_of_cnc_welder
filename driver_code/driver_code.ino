@@ -50,8 +50,10 @@ unsigned int outputB = 0;    			// Output command to the motor
 
 //Force rendering
 float k = 2; //spring constant
-float ff_x = .84;
-float ff_y = 7.93; //Force field location
+float ff_x1 = .84;
+float ff_y1 = 7.93; //Force field location
+float ff_x2 = .84;
+float ff_y2 = 7.93; 
 float distance; //distance of hapkit from target location
 float max_attraction = 1;
 
@@ -261,7 +263,7 @@ void Jacobian(){
 }
 
 
-angle_pair target_thetas = inverse_kinematics(ff_x,ff_y);
+//angle_pair target_thetas = inverse_kinematics(ff_x,ff_y);
 
 float dxydt, dxdt, dydt; 
 float dxydt_filt, dxdt_filt, dydt_filt;
@@ -303,10 +305,17 @@ void loop() {
   Serial.print(",");
   Serial.print(y3);
 
-  distance = abs(sqrt(((ff_x - x3)*(ff_x - x3)) + ((ff_y - y3)*(ff_y - y3))));
+  //distance = abs(sqrt(((ff_x - x3)*(ff_x - x3)) + ((ff_y - y3)*(ff_y - y3))));
+  distance = (abs(((ff_x2-ff_x1)*(y3 - ff_y1)) - ((x3 - ff_x1)*(ff_y2-ff_y1))))/(sqrt(pow(ff_x2-ff_x1,2) + pow(ff_y2-ff_y1,2)));
+  
+  if (distance < 0.5){
+    Fx = 1;
+    Fy = 1;
 
-  Fx = dxdt_filt*b;
-  Fy = -dydt_filt*b;
+  } else {
+    Fx = dxdt_filt*b;
+    Fy = -dydt_filt*b;
+  }
 
   Jacobian(); // compute jacobian
 
