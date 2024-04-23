@@ -49,14 +49,16 @@ double dutyB = 0;            			// Duty cylce (between 0 and 255)
 unsigned int outputB = 0;    			// Output command to the motor
 
 //Force rendering
-float k = 2; //spring constant
+float k = 1; //spring constant
 float ff_x1 = 4.31;
 float ff_y1 = 8.3; //Force field location
 float ff_x2 = -1.79;
 float ff_y2 = 8.3; 
 float distance; //distance of hapkit from target location
 float max_attraction = 1;
-
+//Render line equation given ff_x1,ff_y1,ff_x2,ff_y2
+float x_online;
+float y_online;
 
 unsigned long curr_time=millis();
 unsigned long prev_time=millis();
@@ -277,6 +279,39 @@ float b = .03;
 float dampening;
 
 
+
+
+
+
+struct line_render{
+  float distance;
+  float x_online;
+  float y_online;
+};
+
+
+
+
+//find shortest distance to line and point on line closest to current position
+struct line_render closestpoint(float cur_x,float cur_y, float slope, float intercept){
+  distance = (abs((slope*cur_x)-(cur_y)+intercept))/(sqrt(pow(slope,2))+pow(-1,2));
+  x_online = (-(-cur_x - (slope*cur_y)) - (slope*intercept))/(pow(slope,2)+pow(-1,2));
+  y_online = (slope*(cur_x + (slope*cur_y)) - (-1*intercept))/(pow(slope,2)+pow(-1,2));
+  
+  line_render line_prop;
+  line_prop.distance = distance;
+  line_prop.x_online = x_online;
+  line_prop.y_online = y_online;
+
+  return line_prop;
+}
+
+
+line_render line_prop;
+float target_slope = (ff_y1-ff_y2)/(ff_x1-ff_x2);
+float y_intercept = ff_y1 - (target_slope*ff_x1);
+
+
 void loop() {
   curr_time = millis();//64.0;
   last_tsA = tsA;
@@ -305,12 +340,13 @@ void loop() {
   Serial.print(",");
   Serial.print(y3);
 
-  //distance = abs(sqrt(((ff_x - x3)*(ff_x - x3)) + ((ff_y - y3)*(ff_y - y3))));
-  distance = (abs(((ff_x2-ff_x1)*(y3 - ff_y1)) - ((x3 - ff_x1)*(ff_y2-ff_y1))))/(sqrt(pow(ff_x2-ff_x1,2) + pow(ff_y2-ff_y1,2)));
   
-  if (distance < 0.25){
-    Fx = .5;
-    Fy = -.5;
+  //force rendering
+  line_prop = closestpoint(x3,y3, target_slope, y_intercept);
+
+  if (line_prop.distance < 0.25){
+    Fx = k*(x3 - line_prop.x_online);
+    Fy = k*(y3 - line_prop.y_online);
 
   } else {
     Fx = dxdt_filt*b;
