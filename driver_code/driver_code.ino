@@ -50,10 +50,10 @@ unsigned int outputB = 0;    			// Output command to the motor
 
 //Force rendering
 float k = 2; //spring constant
-float ff_x1 = .84;
-float ff_y1 = 7.93; //Force field location
-float ff_x2 = .84;
-float ff_y2 = 7.93; 
+float ff_x1 = 4.31;
+float ff_y1 = 8.3; //Force field location
+float ff_x2 = -1.79;
+float ff_y2 = 8.3; 
 float distance; //distance of hapkit from target location
 float max_attraction = 1;
 
@@ -308,9 +308,9 @@ void loop() {
   //distance = abs(sqrt(((ff_x - x3)*(ff_x - x3)) + ((ff_y - y3)*(ff_y - y3))));
   distance = (abs(((ff_x2-ff_x1)*(y3 - ff_y1)) - ((x3 - ff_x1)*(ff_y2-ff_y1))))/(sqrt(pow(ff_x2-ff_x1,2) + pow(ff_y2-ff_y1,2)));
   
-  if (distance < 0.5){
-    Fx = 1;
-    Fy = 1;
+  if (distance < 0.25){
+    Fx = .5;
+    Fy = -.5;
 
   } else {
     Fx = dxdt_filt*b;
@@ -330,7 +330,9 @@ void loop() {
   Serial.print(",");
   Serial.print(TpA);
   Serial.print(",");
-  Serial.println(TpB);
+  Serial.print(TpB);
+  Serial.print(",");
+  Serial.println(distance);
 
   last_dxdt = dxdt;
   last_dydt = dydt;
