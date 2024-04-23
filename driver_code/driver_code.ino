@@ -49,7 +49,7 @@ double dutyB = 0;            			// Duty cylce (between 0 and 255)
 unsigned int outputB = 0;    			// Output command to the motor
 
 //Force rendering
-float k = 1; //spring constant
+float k = 1.25; //spring constant
 float ff_x1 = 4.31;
 float ff_y1 = 8.3; //Force field location
 float ff_x2 = -1.79;
@@ -178,14 +178,15 @@ void forward_kinematics(float tsA, float tsB){
   y4 = l4*sinf(tsB);
 
   p4p2 = sqrt(pow(x2 - x4, 2) + pow(y2 - y4, 2)); // distance from p4 to p2
-  php2 = (pow(l2, 2) - pow(l3, 2) + pow(p4p2, 2)) / (2 * p4p2);
 
+  if(p4p2 != 0){
+    php2 = (pow(l2, 2) - pow(l3, 2) + pow(p4p2, 2)) / (2 * p4p2);
+  }
   xH = x2 + (php2 / p4p2) * (x4 - x2);
   yH = y2 + (php2 / p4p2) * (y4 - y2);
 
-  //if(php2 > 36){
-    p3ph = sqrt(pow(l2, 2) - pow(php2, 2));
-  //}
+  p3ph = sqrt(pow(l2, 2) - pow(php2, 2));
+  
   x3 = xH + -(p3ph / p4p2) * (y4 - y2);
   y3 = yH + (p3ph / p4p2) * (x4 - x2);
 
@@ -236,6 +237,10 @@ void Jacobian(){
     jb = norm(x2,y2,xH,yH);
     jh = norm(x3,y3,xH,yH);
     
+    if(jd == 0 || jb == 0 || jh == 0){ 
+      return;
+    }
+
     del1_x2 = -l1*sin(tsA);  //NOTE: THE AUTHOR FORGOT NEGATIVE SIGN IN THE PAPER
     del1_y2 = l1*cos(tsA);
     del5_x4 = -l4*sin(tsB);  //NOTE: THE AUTHOR FORGOT NEGATIVE SIGN IN THE PAPER
@@ -337,18 +342,20 @@ void loop() {
   dydt_filt = dydt*.9 + last_dydt*.1;
 
   Serial.print(x3);
-  Serial.print(",");
-  Serial.print(y3);
+  Serial.print("a");
+  Serial.println(y3);
 
   
   //force rendering
   line_prop = closestpoint(x3,y3, target_slope, y_intercept);
 
-  if (line_prop.distance < 0.25){
-    Fx = k*(x3 - line_prop.x_online);
-    Fy = k*(y3 - line_prop.y_online);
+  if (line_prop.distance < .25){
+    Fx = -k*(x3 - line_prop.x_online);
+    Fy = -k*(y3 - line_prop.y_online);
 
   } else {
+    //Fx = 0;
+    //Fy=0;
     Fx = dxdt_filt*b;
     Fy = -dydt_filt*b;
   }
@@ -362,14 +369,15 @@ void loop() {
 
   TpA= rp/rs * (Tleftx + Tlefty);
   TpB = rp/rs * (Trightx + Trighty);
-  Serial.print(dampening);
+  
+  /*Serial.print(dampening);
   Serial.print(",");
   Serial.print(TpA);
   Serial.print(",");
   Serial.print(TpB);
   Serial.print(",");
   Serial.println(distance);
-
+  */
   last_dxdt = dxdt;
   last_dydt = dydt;
   last_dxydt = dxydt; 

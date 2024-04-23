@@ -10,10 +10,16 @@ class grbl():
         time.sleep(2)   # Wait for grbl to initialize 
         self.s.flushInput()  # Flush startup text in serial input
         self.cond = True
+        self.first_x = 0
+        self.first_y = 0
 
     def scale(self, xpos, ypos, scale):
-        self.x_new = (float(xpos)-3.27)*scale
-        self.y_new = (float(ypos)-1.36)*scale
+        if self.first_x == 0:
+            self.first_x = float(xpos)
+            self.first_y = float(ypos)
+
+        self.x_new = (float(xpos)-self.first_x)*scale
+        self.y_new = (float(ypos)-self.first_y)*scale
 
         return str(self.x_new), str(self.y_new)
 
@@ -28,6 +34,8 @@ class grbl():
 
         li = line.strip() # Strip all EOL characters for consistency
         self.s.write(li.encode()+ '\n'.encode()) # Send g-code block to grbl
+    #    grbl_out = self.s.readline() # Wait for grbl response with carriage return
+    #    print( ' : ', grbl_out.strip())
 
 
 class hapkit():
@@ -38,15 +46,16 @@ class hapkit():
 
     def hapkit_stream(self):
         xypos = self.s2.readline().decode().strip()
-        self.xpos = xypos.split(',')[0]
-        self.ypos = xypos.split(',')[1]
+        self.xpos = xypos.split('a')[0]
+        self.ypos = xypos.split('a')[1]
+        print(xypos)
 
 
 
 
 #for linux '/dev/ttyACM0', for windows 'COM1'
-grbl = grbl('/dev/ttyACM1')
-hapkit = hapkit('/dev/ttyACM0')
+grbl = grbl('COM10')#'/dev/ttyACM1')
+hapkit = hapkit('COM8')#'/dev/ttyACM0')
 
 while True:
     grbl.grbl_stream(hapkit.xpos,hapkit.ypos)
