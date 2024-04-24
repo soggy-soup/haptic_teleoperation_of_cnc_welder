@@ -31,7 +31,7 @@ class grbl():
             self.cond = False
         else:
             line = 'X{} Y{}?'.format(xpos,ypos) #input x,y position from arduino
-
+        self.s.flushInput()  # Flush startup text in serial input
         li = line.strip() # Strip all EOL characters for consistency
         self.s.write(li.encode()+ '\n'.encode()) # Send g-code block to grbl
     #    grbl_out = self.s.readline() # Wait for grbl response with carriage return

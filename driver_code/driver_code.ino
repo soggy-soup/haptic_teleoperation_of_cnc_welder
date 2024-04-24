@@ -13,7 +13,6 @@ int dirPin2A = 9;        // 2nd direction output pin for motor 1
 //int fsrPinA = A3;        // input pin for FSR sensor *NOT USED*
 int encPin1A = 2;        // encoder read pin 1
 int encPin2A = 7;        // encoder read pin 2
-int encIncA = 0;
 
 //Pin declares for Motor+Encoder B
 int pwmPinB = 6;         // PWM output pin for motor 1
@@ -23,7 +22,6 @@ int dirPin2B = 13;        // 2nd direction output pin for motor 1
 //int fsrPinB = A3;        // input pin for FSR sensor *NOT USED*
 int encPin1B = 11;        // encoder read pin 1
 int encPin2B = 12;        // encoder read pin 2
-int encIncB = 0;
 
 //Pulley and sector radii
 double rs = 0.075;   //[m]
@@ -79,18 +77,19 @@ float l5 = 2.5;
 
 float p4p2, php2, p3ph;
 
-
+volatile int newRawPosA, encIncA;
+volatile int newRawPosB, encIncB;
 void readEncoderA() {
-  int newRawPosA = digitalRead(encPin1A) * 2 + digitalRead(encPin2A);
-  int encIncA = EncLookup[lastRawPosA * 4 + newRawPosA];
+  newRawPosA = digitalRead(encPin1A) * 2 + digitalRead(encPin2A);
+  encIncA = EncLookup[lastRawPosA * 4 + newRawPosA];
 
   updatedPosA += encIncA;
   lastRawPosA = newRawPosA;
 }
 
 void readEncoderB() {
-  int newRawPosB = digitalRead(encPin1B) * 2 + digitalRead(encPin2B);
-  int encIncB = EncLookup[lastRawPosB * 4 + newRawPosB];
+  newRawPosB = digitalRead(encPin1B) * 2 + digitalRead(encPin2B);
+  encIncB = EncLookup[lastRawPosB * 4 + newRawPosB];
 
   updatedPosB += encIncB;
   lastRawPosB = newRawPosB;
@@ -168,6 +167,8 @@ struct angle_pair {
 angle_pair test_pair;
 
 
+double l22 = pow(l2,2);
+double l32 = pow(l3,2);
 // https://replit.com/@jafferali1/inversekinematics#main.cpp
 void forward_kinematics(float tsA, float tsB){
   x2 = l1*cosf(tsA);
@@ -179,13 +180,18 @@ void forward_kinematics(float tsA, float tsB){
 
   p4p2 = sqrt(pow(x2 - x4, 2) + pow(y2 - y4, 2)); // distance from p4 to p2
 
-  if(p4p2 != 0){
-    php2 = (pow(l2, 2) - pow(l3, 2) + pow(p4p2, 2)) / (2 * p4p2);
+  if(p4p2 == 0){
+    return;
   }
+  php2 = (l22 - l32 + pow(p4p2, 2)) / (2 * p4p2);
   xH = x2 + (php2 / p4p2) * (x4 - x2);
-  yH = y2 + (php2 / p4p2) * (y4 - y2);
+  yH = y2 + (php2 / p4p2) * (y4 - y2);  
 
-  p3ph = sqrt(pow(l2, 2) - pow(php2, 2));
+
+  if(pow(php2,2) > l22){
+    return;
+  }
+  p3ph = sqrt(l22 - pow(php2, 2));
   
   x3 = xH + -(p3ph / p4p2) * (y4 - y2);
   y3 = yH + (p3ph / p4p2) * (x4 - x2);
@@ -326,49 +332,54 @@ void loop() {
   tsB = radians(0.35*(rp/rs)*updatedPosB) + radians(40); //theta2
 
 
-  dt = float(curr_time - prev_time)/1000;
+  dt = (curr_time - prev_time)/1000;
   last_x3 = x3;
   last_y3 = y3;
   forward_kinematics(tsA, tsB);
 
   // VELOCITY CALCULATIONS
+  /*
   dxydt = sqrt(pow(last_x3 - x3, 2.) + pow(last_y3 - y3, 2.))/dt;
   dxdt = (x3 - last_x3)/dt;
   dydt = (y3 - last_y3)/dt;
-  
+  */
   // FILTERS, UNTESTED
-  dxydt_filt = dxydt*.9 + last_dxydt*.1;
-  dxdt_filt = dxdt*.9 + last_dxdt*.1;
-  dydt_filt = dydt*.9 + last_dydt*.1;
+  //dxydt_filt = dxydt*.9 + last_dxydt*.1;
+  //dxdt_filt = dxdt*.9 + last_dxdt*.1;
+  //dydt_filt = dydt*.9 + last_dydt*.1;
 
   Serial.print(x3);
   Serial.print("a");
   Serial.println(y3);
+ // Serial.print("a");
+ // Serial.println(dt);
 
-  
+  delay(30);
+
   //force rendering
+  /*
   line_prop = closestpoint(x3,y3, target_slope, y_intercept);
 
   if (line_prop.distance < .25){
     Fx = -k*(x3 - line_prop.x_online);
     Fy = -k*(y3 - line_prop.y_online);
-
   } else {
     //Fx = 0;
     //Fy=0;
     Fx = dxdt_filt*b;
     Fy = -dydt_filt*b;
   }
-
+  */
+/*
   Jacobian(); // compute jacobian
 
   float Tleftx = Fx*del1_x3;
   float Trightx = Fx*del5_x3;
   float Tlefty = Fy*del1_y3;
   float Trighty = Fy*del5_y3;
-
-  TpA= rp/rs * (Tleftx + Tlefty);
-  TpB = rp/rs * (Trightx + Trighty);
+*/
+  TpA= 0;///rp/rs * (Tleftx + Tlefty);
+  TpB = 0;//rp/rs * (Trightx + Trighty);
   
   /*Serial.print(dampening);
   Serial.print(",");
@@ -419,5 +430,4 @@ void loop() {
   outputB = (int)(dutyB* 255);   // convert duty cycle to output signal
   analogWrite(pwmPinB,outputB);  // output the signal 
   prev_time = curr_time;
-  delay(30);
 }
