@@ -24,18 +24,19 @@ class grbl():
         return str(self.x_new), str(self.y_new)
 
     def grbl_stream(self,xpos,ypos):
-        xpos, ypos = self.scale(xpos, ypos, -10)
+        xpos, ypos = self.scale(xpos, ypos, -30)
 
         if self.cond is True:
             line = '$X\nG92 X0 Y0 Z0\nG17 G21 G90 G94 G54\nG01 X0 Y0 Z0 F6000\n'
             self.cond = False
         else:
-            line = 'X{} Y{}?'.format(xpos,ypos) #input x,y position from arduino
+            line = 'X{} Y{}'.format(xpos,ypos) #input x,y position from arduino
         self.s.flushInput()  # Flush startup text in serial input
         li = line.strip() # Strip all EOL characters for consistency
         self.s.write(li.encode()+ '\n'.encode()) # Send g-code block to grbl
-       # grbl_out = self.s.readline() # Wait for grbl response with carriage return
-       # print( ' : ', grbl_out.strip())
+        grbl_out = self.s.readline() # Wait for grbl response with carriage return
+        print(line)
+        print( ' : ', grbl_out.strip())
 
 
 class hapkit():
@@ -48,7 +49,6 @@ class hapkit():
         xypos = self.s2.readline().decode().strip()
         self.xpos = xypos.split('a')[1]
         self.ypos = xypos.split('a')[0]
-        print(xypos)
 
 
 
