@@ -34,20 +34,20 @@ class grbl():
         self.s.flushInput()  # Flush startup text in serial input
         li = line.strip() # Strip all EOL characters for consistency
         self.s.write(li.encode()+ '\n'.encode()) # Send g-code block to grbl
-    #    grbl_out = self.s.readline() # Wait for grbl response with carriage return
-    #    print( ' : ', grbl_out.strip())
+       # grbl_out = self.s.readline() # Wait for grbl response with carriage return
+       # print( ' : ', grbl_out.strip())
 
 
 class hapkit():
     def __init__(self, com_port):
-        self.s2 = serial.Serial(com_port,115200)
+        self.s2 = serial.Serial(com_port,9600)
         self.xpos = 0
         self.ypos = 0
 
     def hapkit_stream(self):
         xypos = self.s2.readline().decode().strip()
-        self.xpos = xypos.split('a')[0]
-        self.ypos = xypos.split('a')[1]
+        self.xpos = xypos.split('a')[1]
+        self.ypos = xypos.split('a')[0]
         print(xypos)
 
 
