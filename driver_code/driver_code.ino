@@ -50,19 +50,19 @@ unsigned int outputB = 0;  // Output command to the motor
 
 //Force rendering
 double epsilon = .001;
-double k = 1.25;  //spring constant
-double ff_x1 = 4.31;
-double ff_y1 = 8.3;  //Force field location
-double ff_x2 = -1.79;
-double ff_y2 = 8.3;
+double k = .25;  //spring constant
+double ff_x1 = 10;
+double ff_y1 = 5;  //Force field location
+double ff_x2 = -10;
+double ff_y2 = 5;
 double distance;  //distance of hapkit from target location
 double max_attraction = 1;
 //Render line equation given ff_x1,ff_y1,ff_x2,ff_y2
 double x_online;
 double y_online;
 
-unsigned long curr_time = 0;
-unsigned long prev_time = 0;
+unsigned long int curr_time = 0;
+unsigned long int prev_time = 0;
 
 double tsA = 0;
 double tsB = 0;
@@ -107,8 +107,8 @@ void readEncoderB() {
 
 void setup() {
   // Set up serial communication
-  Serial.begin(9600);
-  time_since_last_flush = millis();
+  Serial.begin(115200);
+  time_since_last_flush = micros();
 
   //MOTOR A
   // Set PWM frequency
@@ -181,8 +181,8 @@ struct angle_pair {
 
 angle_pair test_pair;
 
-boolean epsequal(double a,double b){
-  if(abs(a-b) < .001){
+boolean epsequal(double a1,double b1){
+  if(abs(a1-b1) < .001){
     return true;
   }
   return false;
@@ -272,10 +272,10 @@ void Jacobian() {
   del5_y4 = l4 * cos(tsB);
 
   if(epsequal(del1_y4, del1_y2) || epsequal(del1_x4, del1_x2) || epsequal(x4, x2) || epsequal(y4, y2)){
-    return;
+    //return;
   } 
   if(epsequal(del5_x4, del5_x2) || epsequal(del5_y4, del5_y2)){
-    return;
+   //return;
   }
   //joint 1
   del1_d = (((x4 - x2) * (del1_x4 - del1_x2)) + ((y4 - y2) * (del1_y4 - del1_y2))) / jd;
@@ -350,48 +350,65 @@ long int loop_count = 0;
 
 void loop() {
   loop_count++;
-  curr_time = millis();  //64.0;
   last_tsA = tsA;
   last_tsB = tsB;
 
-  tsA = constrain(-radians(0.3 * (rp / rs) * updatedPosA) + radians(180 - 40), -10, 10);  //theta1
-  tsB = constrain(radians(0.3 * (rp / rs) * updatedPosB) + radians(40), -10, 10);         //theta2
+  tsA = -radians(0.35 * (rp / rs) * updatedPosA) + radians(180 - 40);  //theta1
+  tsB = radians(0.35 * (rp / rs) * updatedPosB) + radians(40);         //theta2
+  curr_time = micros();  //64.0;
 
-  dt = double(curr_time - prev_time) / 1000;
+  dt = double(curr_time - prev_time)/10e6;
 
-  last_x3 = x3;
-  last_y3 = y3;
+
 
   forward_kinematics(tsA, tsB);
   // VELOCITY CALCULATIONS
 
-  dxydt = sqrt(pow(last_x3 - x3, 2.) + pow(last_y3 - y3, 2.)) / dt;
+  if(dt > .003){
+    prev_time = curr_time;
 
-  dxdt = (x3 - last_x3) / dt;
-  dydt = (y3 - last_y3) / dt;
+    dxydt = sqrt(pow(x3 - last_x3, 2.) + pow(y3 - last_y3, 2.)) / dt;
+    dxdt = (x3 - last_x3) / dt;
+    dydt = (y3 - last_y3) / dt;
+
+
+    dxydt_filt = dxydt * .9 + last_dxydt * .1;
+    dxdt_filt = dxdt * .9 + last_dxdt * .1;
+    dydt_filt = dydt * .9 + last_dydt * .1;
+    last_x3 = x3;
+    last_y3 = y3;
+
+    last_dxdt = dxdt_filt;
+    last_dydt = dydt_filt;
+    last_dxydt = dxydt_filt;
+
+    Serial << x3 << "a" << y3 << "\n";
+  }
+
+
+
+
 
   // FILTERS, UNTESTED
-  dxydt_filt = dxydt * .9 + last_dxydt * .1;
-  dxdt_filt = dxdt * .9 + last_dxdt * .1;
-  dydt_filt = dydt * .9 + last_dydt * .1;
 
-  Serial << x3 << "a" << y3 << "\n";
 
   //force rendering
   line_prop = closestpoint(x3, y3, target_slope, y_intercept);
 
   if (line_prop.distance < .25) {
-    //  Fx = -k*(x3 - line_prop.x_online);
-    //  Fy = -k*(y3 - line_prop.y_online);
+      Fx = -k*(x3 - line_prop.x_online);
+      Fy = -k*(y3 - line_prop.y_online);
   } else {
-    //Fx = 0;
-    //Fy=0;
+    Fx=0;//= dxdt_filt * b;
+    Fy=0;// -dydt_filt * b;
   }
-  Fx = dxdt_filt * b;
-  Fy = -dydt_filt * b;
-  if((curr_time - time_since_last_flush) > 60000){
+  //Fx = dxdt_filt * b;
+  //Fy = 0;5;-dydt_filt * b;
+
+
+  if((curr_time - time_since_last_flush) > 6000000){
     Serial.flush();
-    time_since_last_flush = millis();
+    time_since_last_flush = micros();
   }
   Jacobian();  // compute jacobian
 
@@ -403,9 +420,6 @@ void loop() {
   TpA = (rp / rs) * (Tleftx + Tlefty);
   TpB = (rp / rs) * (Trightx + Trighty);
 
-  last_dxdt = dxdt;
-  last_dydt = dydt;
-  last_dxydt = dxydt;
 
   //FORCE OUTPUT
   // Determine correct direction for motor torque
@@ -442,8 +456,10 @@ void loop() {
 
   outputA = (int)(dutyA * 255);   // convert duty cycle to output signal
   outputB = (int)(dutyB * 255);   // convert duty cycle to output signal
+
   analogWrite(pwmPinA, outputA);  // output the signal
   analogWrite(pwmPinB, outputB);  // output the signal
-  delay(30);
-  prev_time = curr_time;
+
+  //delay(30);
+
 }
