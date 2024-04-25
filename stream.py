@@ -24,7 +24,7 @@ class grbl():
         return str(self.x_new), str(self.y_new)
 
     def grbl_stream(self,xpos,ypos):
-        xpos, ypos = self.scale(xpos, ypos, -25.4)
+        xpos, ypos = self.scale(xpos, ypos, 20.0)
 
         if self.cond ==0 :
             line = '$X\nG92 X0 Y0 Z0\nG17 G21 G90 G94 G54\nG01 X0 Y0 Z0 F6000\n'
