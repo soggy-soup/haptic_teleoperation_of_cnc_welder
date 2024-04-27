@@ -1,7 +1,7 @@
 import serial
 import time 
 import keyboard #pip install keyboard
-
+import csv
 
 class grbl():
     def __init__(self,com_port):
@@ -43,30 +43,56 @@ class hapkit():
         self.s2 = serial.Serial(com_port,115200)
         self.xpos = 0
         self.ypos = 0
+        self.recording = False  # Flag to control recording state
 
     def hapkit_stream(self):
         xypos = self.s2.readline().decode().strip()
         self.xpos = xypos.split('a')[0]
         self.ypos = xypos.split('a')[1]
-        print(xypos)
+        if self.recoridng:
+            print(f"xpos: {self.xpos}, ypos: {self.ypos}")
+        
+
+    def toggle_recording(self):
+        self.recording = not self.recording
+        return self.recording
+
+    def write_to_csv(self, filename):
+        with open(filename, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['xpos', 'ypos'])  # Write header
+            while self.recording:
+                self.hapkit_stream()
+                writer.writerow([self.xpos, self.ypos])
 
 
 
 
-grbl1 = grbl('COM10')#'/dev/ttyACM1')
+##grbl1 = grbl('COM10')#'/dev/ttyACM1')
 hapkit1 = hapkit('COM8')#'/dev/ttyACM0')
 
 
+
 while True:
+    if keyboard.is_pressed('space'):
+        recording_state = hapkit1.toggle_recording()
+        if recording_state:
+            print("Recording started...")
+            hapkit1.write_to_csv('hapkit_data.csv')
+            time.sleep(10)
+            print("Recording stopped.")
+            # Reset recording flag and wait for spacebar release
 
-    while keyboard.is_pressed('c') == True:
-        print('CLUTCHING BABY')
-        hapkit1.hapkit_stream()
-        grbl1.first_x = float(hapkit1.xpos)
-        grbl1.first_y = float(hapkit1.ypos)
-        grbl1.cond = 0
+while True:
+    
+    ##while keyboard.is_pressed('c') == True:
+    #    print('CLUTCHING BABY')
+    #    hapkit1.hapkit_stream()
+    #    grbl1.first_x = float(hapkit1.xpos)
+    #    grbl1.first_y = float(hapkit1.ypos)
+    #    grbl1.cond = 0
 
-    grbl1.grbl_stream(hapkit1.xpos,hapkit1.ypos)
+    #grbl1.grbl_stream(hapkit1.xpos,hapkit1.ypos)
     hapkit1.hapkit_stream()
 
 
